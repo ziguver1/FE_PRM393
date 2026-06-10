@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+
+# Local API test file
+check_gemini_free.js
+
+# Build outputs
+**/build/
+**/.dart_tool/

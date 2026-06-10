@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../services/gemini_pet_ai_service.dart';
@@ -5,6 +7,7 @@ import '../services/local_pet_ai_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final GeminiPetAiService _aiService = GeminiPetAiService();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   final List<AiChatMessage> messages = [
     AiChatMessage(
@@ -16,6 +19,26 @@ class ChatProvider extends ChangeNotifier {
 
   bool isLoading = false;
   String? errorMessage;
+
+  ChatProvider() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      final hasNoConnection = results.isEmpty || results.every((r) => r == ConnectivityResult.none);
+      if (hasNoConnection) {
+        errorMessage = "Không có kết nối Internet. Đã tự động chuyển sang chế độ ngoại tuyến.";
+      } else {
+        if (errorMessage == "Không có kết nối Internet. Đã tự động chuyển sang chế độ ngoại tuyến.") {
+          errorMessage = null;
+        }
+      }
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   Future<void> sendMessage(String text) async {
     final message = text.trim();
@@ -39,19 +62,30 @@ class ChatProvider extends ChangeNotifier {
     } catch (e) {
       final localReply = LocalPetAiService().generateReply(message);
 
+      // Làm sạch chuỗi Exception: ở đầu nếu có
+      String friendlyError = e.toString();
+      if (friendlyError.startsWith('Exception: ')) {
+        friendlyError = friendlyError.substring('Exception: '.length);
+      }
+
       messages.add(
         AiChatMessage(
           text:
-              'Gemini AI đang tạm lỗi, mình dùng dữ liệu local của PawMart để trả lời trước:\n\n$localReply',
+              '⚠️ Thiết bị đang ngoại tuyến hoặc kết nối yếu. Tôi đã tự động chuyển sang dữ liệu sản phẩm offline để hỗ trợ bạn:\n\n$localReply',
           isUser: false,
         ),
       );
 
-      errorMessage = e.toString();
+      errorMessage = friendlyError;
     } finally {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  void clearError() {
+    errorMessage = null;
+    notifyListeners();
   }
 
   void clearChat() {

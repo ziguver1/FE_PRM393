@@ -117,10 +117,24 @@ $context
           .join('\n')
           .trim();
     } on DioException catch (e) {
+      final isConnectionError = e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.message?.contains('SocketException') == true ||
+          e.error?.toString().contains('SocketException') == true;
+
+      if (isConnectionError) {
+        throw Exception('Không có kết nối Internet. Vui lòng kiểm tra kết nối mạng.');
+      }
+
       final statusCode = e.response?.statusCode;
       final data = e.response?.data;
 
-      throw Exception('Gemini error $statusCode: $data');
+      throw Exception('Lỗi dịch vụ AI ($statusCode): $data');
+    } catch (e) {
+      throw Exception('Lỗi kết nối không xác định: $e');
     }
   }
 }
+
